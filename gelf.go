@@ -3,6 +3,7 @@ package gelf
 import (
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"log"
 	"os"
 	"strings"
@@ -15,7 +16,15 @@ import (
 var hostname string
 
 func init() {
-	hostname, _ = os.Hostname()
+ 	content, err := ioutil.ReadFile("/etc/host_hostname") // just pass the file name
+	if err == nil && len(content) > 0 {
+		hostname = string(content) // convert content to a 'string'
+	} else {
+		hostname = os.Getenv("SYSLOG_HOSTNAME")
+		if hostname == "" {
+			hostname, _ = os.Hostname()
+		}
+	}
 	router.AdapterFactories.Register(NewGelfAdapter, "gelf")
 }
 
