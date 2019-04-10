@@ -15,7 +15,12 @@ import (
 var hostname string
 
 func init() {
-	hostname, _ = os.Hostname()
+ 	content, err := ioutil.ReadFile("/etc/host_hostname") // just pass the file name
+	if err == nil && len(content) > 0{
+		hostname = string(content) // convert content to a 'string'
+	} else {
+		hostname = getopt("SYSLOG_HOSTNAME", "{{.Container.Config.Hostname}}")
+	}
 	router.AdapterFactories.Register(NewGelfAdapter, "gelf")
 }
 
