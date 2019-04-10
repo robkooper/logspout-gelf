@@ -14,6 +14,7 @@ import (
 )
 
 var hostname string
+var labels []string
 
 func init() {
  	content, err := ioutil.ReadFile("/etc/host_hostname") // just pass the file name
@@ -25,7 +26,15 @@ func init() {
 			hostname, _ = os.Hostname()
 		}
 	}
+	labels = strings.Fields(os.Getenv("GELF_LABELS"))
+	debug("GELF extra labels : ", strings.Join(labels, ", "))
 	router.AdapterFactories.Register(NewGelfAdapter, "gelf")
+}
+
+func debug(v ...interface{}) {
+	if os.Getenv("DEBUG") != "" {
+		log.Println(v...)
+	}
 }
 
 // GelfAdapter is an adapter that streams UDP JSON to Graylog
@@ -101,9 +110,13 @@ func (m GelfMessage) getExtraFields() (json.RawMessage, error) {
 		"_command":        strings.Join(m.Container.Config.Cmd[:], " "),
 		"_created":        m.Container.Created,
 	}
+	strB, _ := json.Marshal(m.Container)
+	debug("GELF Container ", string(strB))
 	for name, label := range m.Container.Config.Labels {
 		if len(name) > 5 && strings.ToLower(name[0:5]) == "gelf_" {
 			extra[name[4:]] = label
+		} else if checkLabel(name) {
+			extra[name] = label
 		}
 	}
 	swarmnode := m.Container.Node
@@ -116,4 +129,13 @@ func (m GelfMessage) getExtraFields() (json.RawMessage, error) {
 		return nil, err
 	}
 	return rawExtra, nil
+}
+
+func checkLabel(a string) bool {
+	for _, b := range labels {
+		if b == a {
+			return true
+		}
+	}
+	return false
 }
